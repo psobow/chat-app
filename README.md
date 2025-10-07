@@ -1,6 +1,6 @@
 # 🗨️ Chat App - Microservices
 
-A **lightweight real-time messaging system** with **secure authentication**, **contact management**, **instant messaging**, and **read receipts**.  
+A **lightweight real-time messaging system** with **secure authentication**, **contact management**, **instant messaging**, and **read receipts**. 
 Built as an **MVP** with a **microservices approach**, it demonstrates **scalable communication** powered by **Spring
 Boot 3**, **Keycloak**, **Kafka**, **Redis**, and **PostgreSQL**.
 
@@ -72,7 +72,7 @@ I want to be notified when my messages are read,
 - Single entry point for frontend → backend communication
 - Routes requests to appropriate services
 - Handles **JWT validation** with Keycloak
-- Stateless (no database)
+- no database
 
 ### Contact Service
 
@@ -80,18 +80,17 @@ I want to be notified when my messages are read,
 - REST Endpoints:
 	- `GET /api/v1/contacts` — list all user contacts
 	- `POST /api/v1/contacts` — create a new contact
-
-- Dependencies:
-	- PostgreSQL (for persisting contacts)
+- PostgreSQL for persisting contacts
 
 ### Realtime Communication Service (RTCS)
 
 - Exposes **WebSocket API** for messaging
 - Handles live events (send, receive, read)
 - Uses **Redis pub/sub** to route WebSocket events across instances
-- Publishes/consumes Kafka topics:
+- Publishes Kafka topics:
 	- `message.sent`
 	- `message.read`
+- Consumes Kafka topics:
 	- `message.sent.persisted`
 	- `message.read.persisted`
 
@@ -101,19 +100,24 @@ I want to be notified when my messages are read,
 - REST Endpoints:
 	- `GET /api/v1/messages/history/{contactUserId}` — retrieve chat history
 
-- Collaborates with RTCS via Kafka topics
-- Persists messages in PostgreSQL
+- PostgreSQL for persisting messages 
+- Publishes Kafka topics:
+	- `message.sent.persisted`
+	- `message.read.persisted`
+- Consumes Kafka topics:
+	- `message.sent`
+	- `message.read`
 
 ### Redis
 
 - Pub-sub system for routing WebSocket messages
 - Ensures messages reach the correct RTCS instance
+- Enables horizontal scaling of RTCS
 
 ### Kafka
 
 - Backbone of asynchronous communication between services
 - Separates **event handling** from **persistence**
-- Enables horizontal scaling of RTCS and Message Service
 
 ## 🏛 High-Level Overview
 
@@ -121,8 +125,8 @@ I want to be notified when my messages are read,
 graph LR
 
 %% Top row
-UI["Frontend (React + Vite)"] -->|HTTP requests / WebSocket CONNECT| GW["API Gateway<br/>(Spring Cloud Gateway)"]
-GW -->|JWT validation| KC["Keycloak<br/>OIDC/JWT"]
+UI["Frontend (React + Vite)"] -->|HTTP requests / WebSocket CONNECT| GW["API Gateway"]
+UI -->|User Authorization| KC["Keycloak"]
 
 %% Services row
 subgraph Contact Service
@@ -135,7 +139,7 @@ subgraph Message Service
   MSGDB["PostgreSQL"]
 end
 
-subgraph Realtime Service
+subgraph RTS["Realtime Service (RTS)"]
   RTWS["WebSocket handler"]
 end
 
@@ -159,15 +163,15 @@ subgraph KAFKA[Kafka Topics]
 end
 
 %% Realtime / events
-RTWS -->|pub/sub for active sockets| REDIS
+RTWS -->|broadcast messages between RTS instances| REDIS
 RTWS -->|publish message.sent / message.read| KAFKA_PUB
-MSGAPI -->|publish *.persisted after DB write| KAFKA_PUB
-KAFKA_SUB -->|deliver to RT instances| RTWS
-KAFKA_SUB -->|consume for persistence / read receipts| MSGAPI
+MSGAPI -->|publish message.*.persisted| KAFKA_PUB
+KAFKA_SUB -->|consume message.*.persisted| RTWS
+KAFKA_SUB -->|consume message.sent / message.read| MSGAPI
 
 ```
 
-## REST API 
+## REST API
 
 - `GET /api/v1/contacts` → list user’s contacts
 - `POST /api/v1/contacts` → create a new contact
@@ -238,10 +242,10 @@ sequenceDiagram
   participant MS as Message Service
   participant DB as PostgreSQL
 
-  Note over UI,GW: User already authenticated via Keycloak (JWT in Authorization)
+  Note over UI,GW: User already authenticated via Keycloak
 
-  UI->>GW: WebSocket CONNECT (Bearer JWT)
-  GW->>RT: Upgrade + forward (validated)
+  UI->>GW: WebSocket CONNECT
+  GW->>RT: Upgrade + forward
   RT-->>UI: CONNECTION_ACK
 
   UI->>RT: MESSAGE_SENT {senderId, receiverId, text}
@@ -278,29 +282,28 @@ Represents a read receipt for a message:
 ```mermaid
 sequenceDiagram
   autonumber
-  participant UI_R as Receiver UI (React)
+  participant UI as Frontend (React)
   participant GW as API Gateway
   participant RT as Realtime Service (WS)
   participant K as Kafka
   participant MS as Message Service
   participant DB as PostgreSQL
-  participant UI_S as Sender UI (React)
 
-  Note over UI_R,GW: Receiver already connected via JWT-authenticated WebSocket
+  Note over UI,GW: Receiver already connected WebSocket
 
-  UI_R->>GW: WebSocket (existing)
-  GW->>RT: Forward (validated)
+  UI->>GW: WebSocket (existing)
+  GW->>RT: forward
 
-  UI_R->>RT: MESSAGE_READ {messageId, senderId, receiverId}
+  UI->>RT: MESSAGE_READ {messageId, senderId, receiverId}
   RT->>K: publish message.read
 
   K->>MS: consume message.read
-  MS->>DB: mark message as READ (idempotent)
+  MS->>DB: mark message as READ
   MS->>K: publish message.read.persisted
 
   K->>RT: consume message.read.persisted
-  RT-->>UI_S: MESSAGE_READ (notify original sender)
-  RT-->>UI_R: MESSAGE_READ_ACK (optional confirm to receiver)
+  RT-->>UI: MESSAGE_READ (notify original sender)
+  RT-->>UI: MESSAGE_READ_ACK (confirm to receiver)
 
 ```
 
