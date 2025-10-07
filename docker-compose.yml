@@ -1,0 +1,23 @@
+services:
+
+  db:
+    image: postgres:17.5-alpine
+    restart: always
+    # set shared memory limit when using docker compose
+    shm_size: 128mb
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data-chat:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: changemeinprod!
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8888:8080
+
+volumes:
+  postgres-data-chat:
+    driver: local
