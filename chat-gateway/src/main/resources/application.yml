@@ -1,0 +1,17 @@
+logging:
+  level:
+    com.sobow: "debug"
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: chat-gateway
+
+  # Configure Keycloak as the authorization server
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: "http://localhost:9090/realms/chat-app"
