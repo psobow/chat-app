@@ -15,6 +15,7 @@
   <packaging>pom</packaging>
 
   <modules>
+    <module>chat-gateway</module>
   </modules>
 
   <properties>
