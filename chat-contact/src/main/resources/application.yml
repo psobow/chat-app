@@ -1,0 +1,22 @@
+logging:
+  level:
+    com.devtiro: "debug"
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: contact-service
+
+  r2dbc:
+    url: "r2dbc:postgresql://localhost:5432/contacts"
+    username: postgres
+    password: changemeinprod!
+
+  flyway:
+    # To prevent flyway loading migrations from other modules
+    locations: classpath:db/migration/contact
+    url: jdbc:postgresql://localhost:5432/contacts
+    user: postgres
+    password: changemeinprod!
