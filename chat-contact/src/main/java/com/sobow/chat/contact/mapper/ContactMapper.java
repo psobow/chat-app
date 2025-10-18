@@ -1,6 +1,6 @@
 package com.sobow.chat.contact.mapper;
 
-import com.sobow.chat.contact.domain.dto.ListContactResponseDto;
+import com.sobow.chat.contact.domain.dto.ContactResponseDto;
 import com.sobow.chat.contact.domain.entity.Contact;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -10,5 +10,5 @@ import org.mapstruct.ReportingPolicy;
 public interface ContactMapper {
     
     @Mapping(source = "contactUserId", target = "userId")
-    ListContactResponseDto toDto(Contact contact);
+    ContactResponseDto toDto(Contact contact);
 }

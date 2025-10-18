@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ListContactResponseDto {
+public class ContactResponseDto {
     
     private UUID id;
     private UUID userId;
