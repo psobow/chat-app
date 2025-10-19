@@ -26,7 +26,7 @@ public class ContactController {
         @RequestHeader("X-User-ID") UUID userId
     ) {
         Flux<Contact> contacts = contactService.findAllForUser(userId);
-        Flux<ContactResponseDto> dtos = contacts.map(contactMapper::toDto);
+        Flux<ContactResponseDto> dtos = contacts.map(contactMapper::toContactResponseDto);
         return ResponseEntity.ok(dtos);
     }
 }
