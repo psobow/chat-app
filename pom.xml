@@ -17,6 +17,7 @@
   <modules>
     <module>chat-gateway</module>
     <module>chat-contact</module>
+    <module>chat-common</module>
   </modules>
 
   <properties>
@@ -39,6 +40,11 @@
         <groupId>org.mapstruct</groupId>
         <artifactId>mapstruct</artifactId>
         <version>${org.mapstruct.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sobow</groupId>
+        <artifactId>chat-common</artifactId>
+        <version>${project.version}}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
