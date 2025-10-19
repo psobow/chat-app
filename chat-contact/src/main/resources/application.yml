@@ -1,6 +1,6 @@
 logging:
   level:
-    com.devtiro: "debug"
+    com.sobow: "debug"
 
 server:
   port: 8081

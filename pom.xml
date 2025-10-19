@@ -18,6 +18,7 @@
     <module>chat-gateway</module>
     <module>chat-contact</module>
     <module>chat-common</module>
+    <module>chat-realtime</module>
   </modules>
 
   <properties>
@@ -44,7 +45,7 @@
       <dependency>
         <groupId>com.sobow</groupId>
         <artifactId>chat-common</artifactId>
-        <version>${project.version}}</version>
+        <version>${project.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
