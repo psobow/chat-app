@@ -14,3 +14,33 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: "http://localhost:9090/realms/chat-app"
+
+kafka:
+  # Specifies the Kafka broker addresses to connect to
+  bootstrap-servers: localhost:9092
+  producer:
+    # Serializer for message keys (converts keys to byte arrays)
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    # Serializer for message values (converts objects to JSON format)
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    # Waits for acknowledgment from all in-sync replicas before considering send complete
+    acks: all
+    # Number of retry attempts for failed message sends
+    retries: 3
+    properties:
+      # Disables adding type information to JSON headers for cleaner JSON output -- safe as we're using one type per topic
+      spring.json.add.type.headers: false
+  consumer:
+    # Consumer group identifier for coordinating message consumption
+    group-id: realtime-service
+    # Deserializer for message keys (converts byte arrays back to strings)
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    # Deserializer for message values (converts JSON back to objects)
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    # Starts reading from the beginning of topics when no previous offset exists
+    auto-offset-reset: earliest
+    # Automatically commits consumer offsets periodically
+    enable-auto-commit: true
+    properties:
+      # Specifies which packages are trusted for JSON deserialization (security measure)
+      spring.json.trusted.packages: "com.sobow.chat.domain.dtos"
