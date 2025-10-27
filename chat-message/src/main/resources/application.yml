@@ -8,6 +8,18 @@ server:
 spring:
   application:
     name: chat-message
+  r2dbc:
+    url: "r2dbc:postgresql://localhost:5432/messages"
+    username: postgres
+    password: changemeinprod!
+
+  flyway:
+    # To prevent flyway loading migrations from other modules
+    locations: classpath:db/migration/message
+    url: jdbc:postgresql://localhost:5432/messages
+    user: postgres
+    password: changemeinprod!
+
 
   kafka:
     bootstrap-servers: localhost:9092
