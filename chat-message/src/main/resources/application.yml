@@ -1,0 +1,10 @@
+logging:
+  level:
+    com.devtiro: "debug"
+
+server:
+  port: 8083
+
+spring:
+  application:
+    name: chat-message

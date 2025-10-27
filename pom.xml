@@ -19,6 +19,7 @@
     <module>chat-contact</module>
     <module>chat-common</module>
     <module>chat-realtime</module>
+    <module>chat-message</module>
   </modules>
 
   <properties>
