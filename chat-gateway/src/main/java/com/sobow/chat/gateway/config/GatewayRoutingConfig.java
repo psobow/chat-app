@@ -16,6 +16,14 @@ public class GatewayRoutingConfig {
             .route("contacts",
                    r -> r.path("/api/v1/contacts/**")
                          .uri("http://localhost:8081")
-            ).build();
+            )
+            // Real Time Communication Service
+            .route("websocket", r ->
+                r.path("/api/v1/ws/**")
+                 .and()
+                 .header("Upgrade", "websocket")
+                 .uri("http://localhost:8082")
+            )
+            .build();
     }
 }

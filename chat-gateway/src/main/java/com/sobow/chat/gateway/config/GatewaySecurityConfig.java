@@ -17,7 +17,9 @@ public class GatewaySecurityConfig {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http.authorizeExchange(exchanges -> exchanges
-                       // All endpoints are secured
+                       .pathMatchers("/api/v1/ws/**").permitAll()
+                       
+                       // All other endpoints are secured
                        .anyExchange()
                        .authenticated()
                    )
