@@ -50,4 +50,4 @@ kafka:
     enable-auto-commit: true
     properties:
       # Specifies which packages are trusted for JSON deserialization (security measure)
-      spring.json.trusted.packages: "com.sobow.chat.domain.dtos"
+      spring.json.trusted.packages: "com.sobow.chat.common.domain.dto"
