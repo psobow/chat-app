@@ -1,9 +1,13 @@
 package com.sobow.chat.realtime.handler;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sobow.chat.common.domain.dto.MessageSentEventDto;
 import com.sobow.chat.realtime.domain.event.WebSocketEventEnvelope;
 import com.sobow.chat.realtime.domain.event.WebSocketEventType;
 import com.sobow.chat.realtime.exception.WebSocketUnauthorizedException;
+import com.sobow.chat.realtime.service.MessageSentEventPublisher;
 import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
@@ -26,6 +31,7 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
     
     private final ReactiveJwtDecoder jwtDecoder;
     private final ObjectMapper objectMapper;
+    private final MessageSentEventPublisher messageSentEventPublisher;
     
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -64,7 +70,8 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
         WebSocketSession session,
         UUID userId
     ) {
-        return sendConnectionAcknowledgedMessage(session);
+        return sendConnectionAcknowledgedMessage(session)
+            .then(handleIncomingWebSocketMessage(session));
     }
     
     private Mono<Void> sendConnectionAcknowledgedMessage(WebSocketSession session) {
@@ -72,6 +79,64 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
             .map(session::textMessage)
             .as(session::send)
             .then();
+    }
+    
+    private Mono<Void> handleIncomingWebSocketMessage(WebSocketSession session) {
+        return session
+            .receive()
+            .map(WebSocketMessage::getPayloadAsText)
+            .doOnNext(next -> log.debug("Received WebSocket message {}", next))
+            .flatMap(this::parseWebSocketEventEnvelope)
+            .flatMap(event ->
+                         switch (event.getType()) {
+                             case MESSAGE_SENT -> handleIncomingMessageSentEvent(event);
+                             default -> handleUnsupportedEvent(event);
+                         })
+            .onErrorResume(error -> {
+                log.error("Error occurred while handling incoming WebSocket message: ", error);
+                return Mono.empty();
+            }).then();
+    }
+    
+    private Mono<WebSocketEventEnvelope<?>> parseWebSocketEventEnvelope(String rawMessage) {
+        return Mono.defer(() -> {
+            try {
+                var envelope = objectMapper.readValue(rawMessage, new TypeReference<WebSocketEventEnvelope<?>>() {
+                });
+                return Mono.just(envelope);
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to parse WS envelope: {}", rawMessage, e);
+                return Mono.empty();
+            }
+        });
+    }
+    
+    private Mono<Void> handleIncomingMessageSentEvent(WebSocketEventEnvelope<?> event) {
+        return parseMessageSentEvent(event)
+            .doOnNext(next -> log.debug("Received WebSocket message sent event {}", next))
+            .flatMap(messageSentEventPublisher::publish)
+            .doOnSuccess(onSuccess -> log.debug("WebSocket message sent event successfully published to Kafka: {}", event))
+            .doOnError(onError -> log.error("WebSocket message sent event failed to publish to Kafka: {}", event));
+    }
+    
+    private Mono<MessageSentEventDto> parseMessageSentEvent(WebSocketEventEnvelope<?> event) {
+        return parseEvent(event, MessageSentEventDto.class);
+    }
+    
+    private <T> Mono<T> parseEvent(WebSocketEventEnvelope<?> envelope, Class<T> payloadClass) {
+        return Mono.defer(() -> {
+            try {
+                T value = objectMapper.convertValue(envelope.getPayload(), payloadClass);
+                return Mono.just(value);
+            } catch (IllegalArgumentException e) {
+                return Mono.error(e);
+            }
+        });
+    }
+    
+    private Mono<Void> handleUnsupportedEvent(WebSocketEventEnvelope<?> unsupportedEvent) {
+        log.debug("Received unsupported event {}", unsupportedEvent);
+        return Mono.empty();
     }
     
     private Mono<String> serializeWebSocketConnectionAckEvent() {
