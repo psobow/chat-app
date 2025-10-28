@@ -28,16 +28,16 @@ public class ContactController {
     private final ContactMapper contactMapper;
     
     @GetMapping
-    public ResponseEntity<Flux<ContactResponseDto>> listContacts(
+    public Flux<ResponseEntity<ContactResponseDto>> listContacts(
         @RequestHeader("X-User-ID") UUID userId
     ) {
         Flux<Contact> contacts = contactService.findAllForUser(userId);
-        Flux<ContactResponseDto> dtos = contacts.map(contactMapper::toContactResponseDto);
-        return ResponseEntity.ok(dtos);
+        Flux<ContactResponseDto> responseDtoFlux = contacts.map(contactMapper::toContactResponseDto);
+        return responseDtoFlux.map(ResponseEntity::ok);
     }
     
     @PostMapping
-    public ResponseEntity<Mono<CreateContactResponseDto>> createContact(
+    public Mono<ResponseEntity<CreateContactResponseDto>> createContact(
         @RequestHeader("X-User-ID") UUID userId,
         @RequestBody CreateContactRequestDto createContactRequestDto
     ) {
@@ -47,6 +47,6 @@ public class ContactController {
             createContactRequestDto.getDisplayName()
         ).map(contactMapper::toCreateContactResponseDto);
         
-        return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
+        return responseDto.map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 }
