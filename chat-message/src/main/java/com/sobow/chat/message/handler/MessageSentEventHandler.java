@@ -1,9 +1,12 @@
 package com.sobow.chat.message.handler;
 
 import com.sobow.chat.common.domain.dto.MessageSentEventDto;
+import com.sobow.chat.common.domain.dto.MessageSentPersistedEventDto;
 import com.sobow.chat.message.domain.entity.ChatMessage;
 import com.sobow.chat.message.service.ChatMessageService;
+import com.sobow.chat.message.service.MessageSentPersistedEventPublisher;
 import jakarta.annotation.PostConstruct;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
@@ -17,6 +20,7 @@ public class MessageSentEventHandler {
     
     private final ReactiveKafkaConsumerTemplate<String, MessageSentEventDto> kafkaConsumer;
     private final ChatMessageService chatMessageService;
+    private final MessageSentPersistedEventPublisher messageSentEventPublisher;
     
     @PostConstruct
     public void startKafkaConsumer() {
@@ -45,6 +49,20 @@ public class MessageSentEventHandler {
                                              .isNew(true)
                                              .build();
         
-        return chatMessageService.save(chatMessage).then();
+        return chatMessageService.save(chatMessage)
+                                 .flatMap(this::publishMessageSentPersistedEvent)
+                                 .then();
+    }
+    
+    private Mono<Void> publishMessageSentPersistedEvent(ChatMessage chatMessage) {
+        MessageSentPersistedEventDto event = MessageSentPersistedEventDto
+            .builder()
+            .messageId(chatMessage.getId())
+            .senderId(chatMessage.getSenderId())
+            .receiverId(chatMessage.getReceiverId())
+            .text(chatMessage.getText())
+            .persistedAt(chatMessage.getCreatedAt().toInstant(ZoneOffset.UTC))
+            .build();
+        return messageSentEventPublisher.publish(event);
     }
 }
