@@ -12,17 +12,22 @@ public class GatewayRoutingConfig {
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder
             .routes()
-            // Contact service routes
+            // Contact Service
             .route("contacts",
                    r -> r.path("/api/v1/contacts/**")
                          .uri("http://localhost:8081")
             )
             // Real Time Communication Service
-            .route("websocket", r ->
-                r.path("/api/v1/ws/**")
-                 .and()
-                 .header("Upgrade", "websocket")
-                 .uri("http://localhost:8082")
+            .route("websocket",
+                   r -> r.path("/api/v1/ws/**")
+                         .and()
+                         .header("Upgrade", "websocket")
+                         .uri("http://localhost:8082")
+            )
+            // Message Service
+            .route("message",
+                   r -> r.path("/api/v1/messages/**")
+                         .uri("http://localhost:8083")
             )
             .build();
     }
