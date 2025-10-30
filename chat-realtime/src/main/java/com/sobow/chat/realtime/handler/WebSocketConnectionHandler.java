@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sobow.chat.common.domain.dto.MessageSentEventDto;
+import com.sobow.chat.common.domain.dto.MessageSentPersistedEventDto;
 import com.sobow.chat.realtime.domain.event.WebSocketEventEnvelope;
 import com.sobow.chat.realtime.domain.event.WebSocketEventType;
 import com.sobow.chat.realtime.exception.WebSocketUnauthorizedException;
 import com.sobow.chat.realtime.service.MessageSentEventPublisher;
+import com.sobow.chat.realtime.service.MessageSentPersistedBroadcaster;
 import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
@@ -32,6 +34,7 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
     private final ReactiveJwtDecoder jwtDecoder;
     private final ObjectMapper objectMapper;
     private final MessageSentEventPublisher messageSentEventPublisher;
+    private final MessageSentPersistedBroadcaster messageSentPersistedBroadcaster;
     
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -71,15 +74,43 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
         UUID userId
     ) {
         return sendConnectionAcknowledgedMessage(session)
-            .then(handleIncomingWebSocketMessage(session));
+            .then(Mono.when(
+                handleIncomingWebSocketMessage(session),
+                handleOutgoingWebSocketMessage(session, userId)
+            ));
     }
     
     private Mono<Void> sendConnectionAcknowledgedMessage(WebSocketSession session) {
         return Mono.just(buildConnectionAckEnvelope())
-                   .flatMap(this::toJson)
+                   .flatMap(this::serializeWebSocketEvent)
                    .map(session::textMessage)
                    .as(session::send)
                    .then();
+    }
+    
+    private Mono<Void> handleOutgoingWebSocketMessage(WebSocketSession session, UUID userId) {
+        return messageSentPersistedBroadcaster
+            .subscribe()
+            .filter(event -> userId.equals(event.getSenderId()) || userId.equals(event.getReceiverId()))
+            .flatMap(this::serializeMessageSentPersistedEvent)
+            .doOnNext(next -> log.debug("WebSocket message out: {}", next))
+            .map(session::textMessage)
+            .as(session::send)
+            .onErrorResume(error -> {
+                log.error("Error sending WebSocket message:", error);
+                return Mono.empty();
+            });
+    }
+    
+    private Mono<String> serializeMessageSentPersistedEvent(MessageSentPersistedEventDto event) {
+        WebSocketEventEnvelope<MessageSentPersistedEventDto> envelope =
+            WebSocketEventEnvelope.<MessageSentPersistedEventDto>builder()
+                                  .id(UUID.randomUUID())
+                                  .type(WebSocketEventType.MESSAGE_SENT)
+                                  .payload(event)
+                                  .timestamp(Instant.now())
+                                  .build();
+        return serializeWebSocketEvent(envelope);
     }
     
     private Mono<Void> handleIncomingWebSocketMessage(WebSocketSession session) {
@@ -154,7 +185,7 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
         return ackMessage;
     }
     
-    private Mono<String> toJson(WebSocketEventEnvelope<?> envelope) {
+    private Mono<String> serializeWebSocketEvent(WebSocketEventEnvelope<?> envelope) {
         try {
             return Mono.fromCallable(() -> objectMapper.writeValueAsString(envelope));
         } catch (Exception e) {

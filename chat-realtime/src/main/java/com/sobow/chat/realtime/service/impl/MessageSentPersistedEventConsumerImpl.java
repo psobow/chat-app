@@ -12,7 +12,7 @@ import reactor.core.publisher.Flux;
 @RequiredArgsConstructor
 public class MessageSentPersistedEventConsumerImpl implements MessageSentPersistedEventConsumer {
     
-    private ReactiveKafkaConsumerTemplate<String, MessageSentPersistedEventDto> kafkaConsumer;
+    private final ReactiveKafkaConsumerTemplate<String, MessageSentPersistedEventDto> kafkaConsumer;
     
     @Override
     public Flux<MessageSentPersistedEventDto> listen() {
