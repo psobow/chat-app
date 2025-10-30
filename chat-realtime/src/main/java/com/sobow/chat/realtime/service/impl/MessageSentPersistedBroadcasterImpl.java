@@ -34,7 +34,8 @@ public class MessageSentPersistedBroadcasterImpl implements MessageSentPersisted
             .doOnSubscribe(subscription -> log.debug("Listening to message sent persisted events"))
             .flatMap(event -> redisTemplate.convertAndSend(CHAT_MESSAGE_SENT, event))
             .doOnNext(next -> log.debug("Stored object in Redis: {}", next))
-            .onErrorContinue((error, object) -> log.error("Error storing object in Redis: ", error));
+            .onErrorContinue((error, object) -> log.error("Error storing object in Redis: ", error))
+            .subscribe();
         
         // Redis -> Local Sinks
         redisTemplate
