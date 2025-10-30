@@ -28,12 +28,12 @@ public class ContactController {
     private final ContactMapper contactMapper;
     
     @GetMapping
-    public Flux<ResponseEntity<ContactResponseDto>> listContacts(
+    public ResponseEntity<Flux<ContactResponseDto>> listContacts(
         @RequestHeader("X-User-ID") UUID userId
     ) {
         Flux<Contact> contacts = contactService.findAllForUser(userId);
-        Flux<ContactResponseDto> responseDtoFlux = contacts.map(contactMapper::toContactResponseDto);
-        return responseDtoFlux.map(ResponseEntity::ok);
+        Flux<ContactResponseDto> dtos = contacts.map(contactMapper::toContactResponseDto);
+        return ResponseEntity.ok(dtos);
     }
     
     @PostMapping
