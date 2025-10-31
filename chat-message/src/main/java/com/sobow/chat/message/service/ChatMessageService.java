@@ -10,4 +10,6 @@ public interface ChatMessageService {
     Mono<ChatMessage> save(ChatMessage chatMessage);
     
     Flux<ChatMessage> getChatMessageHistory(UUID currentUserId, UUID contactUserId);
+    
+    Mono<ChatMessage> markChatMessageAsRead(UUID messageId);
 }
