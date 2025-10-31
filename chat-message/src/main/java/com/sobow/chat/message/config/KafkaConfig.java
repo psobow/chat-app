@@ -1,8 +1,11 @@
 package com.sobow.chat.message.config;
 
+import static com.sobow.chat.common.KafkaTopics.KAFKA_TOPIC_MESSAGE_READ;
 import static com.sobow.chat.common.KafkaTopics.KAFKA_TOPIC_MESSAGE_SENT;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sobow.chat.common.domain.dto.MessageReadEventDto;
+import com.sobow.chat.common.domain.dto.MessageReadPersistedEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentPersistedEventDto;
 import java.util.Collections;
@@ -41,6 +44,20 @@ public class KafkaConfig {
     }
     
     @Bean
+    public ReactiveKafkaProducerTemplate<String, MessageReadPersistedEventDto> kafkaProducerMessageReadPersistedEvent(
+        KafkaProperties kafkaProperties
+    ) {
+        Map<String, Object> props = kafkaProperties.buildProducerProperties();
+        
+        // Create SenderOptions with custom serializers
+        SenderOptions<String, MessageReadPersistedEventDto> senderOptions =
+            SenderOptions.<String, MessageReadPersistedEventDto>create(props)
+                         .withValueSerializer(new JsonSerializer<>(objectMapper));
+        
+        return new ReactiveKafkaProducerTemplate<>(senderOptions);
+    }
+    
+    @Bean
     public ReactiveKafkaConsumerTemplate<String, MessageSentEventDto> kafkaConsumerMessageSentEvent(
         KafkaProperties kafkaProperties
     ) {
@@ -54,6 +71,24 @@ public class KafkaConfig {
             ReceiverOptions.<String, MessageSentEventDto>create(props)
                            .withValueDeserializer(jsonDeserializer)
                            .subscription(Collections.singleton(KAFKA_TOPIC_MESSAGE_SENT));
+        
+        return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
+    }
+    
+    @Bean
+    public ReactiveKafkaConsumerTemplate<String, MessageReadEventDto>
+    kafkaConsumerMessageReadEvent(KafkaProperties kafkaProperties) {
+        
+        Map<String, Object> props = kafkaProperties.buildConsumerProperties();
+        
+        JsonDeserializer<MessageReadEventDto> jsonDeserializer =
+            new JsonDeserializer<>(MessageReadEventDto.class, objectMapper);
+        jsonDeserializer.addTrustedPackages("com.sobow.chat.common.domain.dto");
+        
+        ReceiverOptions<String, MessageReadEventDto> receiverOptions =
+            ReceiverOptions.<String, MessageReadEventDto>create(props)
+                           .withValueDeserializer(jsonDeserializer)
+                           .subscription(Collections.singleton(KAFKA_TOPIC_MESSAGE_READ));
         
         return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
     }
