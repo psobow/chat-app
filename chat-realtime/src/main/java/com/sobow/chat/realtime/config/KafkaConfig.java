@@ -1,8 +1,11 @@
 package com.sobow.chat.realtime.config;
 
+import static com.sobow.chat.common.KafkaTopics.KAFKA_TOPIC_MESSAGE_READ_PERSISTED;
 import static com.sobow.chat.common.KafkaTopics.KAFKA_TOPIC_MESSAGE_SENT_PERSISTED;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sobow.chat.common.domain.dto.MessageReadEventDto;
+import com.sobow.chat.common.domain.dto.MessageReadPersistedEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentPersistedEventDto;
 import java.util.Collections;
@@ -41,8 +44,23 @@ public class KafkaConfig {
     }
     
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, MessageSentPersistedEventDto>
-    kafkaConsumerMessageSentPersistedEvent(KafkaProperties kafkaProperties
+    public ReactiveKafkaProducerTemplate<String, MessageReadEventDto> kafkaProducerMessageReadEvent(
+        KafkaProperties kafkaProperties
+    ) {
+        Map<String, Object> props = kafkaProperties.buildProducerProperties();
+        
+        // Create SenderOptions with custom serializers
+        SenderOptions<String, MessageReadEventDto> senderOptions =
+            SenderOptions.<String, MessageReadEventDto>create(props)
+                         .withValueSerializer(new JsonSerializer<>(objectMapper));
+        
+        return new ReactiveKafkaProducerTemplate<>(senderOptions);
+    }
+    
+    
+    @Bean
+    public ReactiveKafkaConsumerTemplate<String, MessageSentPersistedEventDto> kafkaConsumerMessageSentPersistedEvent(
+        KafkaProperties kafkaProperties
     ) {
         Map<String, Object> props = kafkaProperties.buildConsumerProperties();
         
@@ -57,4 +75,23 @@ public class KafkaConfig {
         
         return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
     }
+    
+    @Bean
+    public ReactiveKafkaConsumerTemplate<String, MessageReadPersistedEventDto> kafkaConsumerMessageReadPersistedEvent(
+        KafkaProperties kafkaProperties
+    ) {
+        
+        Map<String, Object> props = kafkaProperties.buildConsumerProperties();
+        
+        JsonDeserializer<MessageReadPersistedEventDto> jsonDeserializer =
+            new JsonDeserializer<>(MessageReadPersistedEventDto.class, objectMapper);
+        
+        ReceiverOptions<String, MessageReadPersistedEventDto> receiverOptions =
+            ReceiverOptions.<String, MessageReadPersistedEventDto>create(props)
+                           .withValueDeserializer(jsonDeserializer)
+                           .subscription(Collections.singleton(KAFKA_TOPIC_MESSAGE_READ_PERSISTED));
+        
+        return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
+    }
+    
 }
