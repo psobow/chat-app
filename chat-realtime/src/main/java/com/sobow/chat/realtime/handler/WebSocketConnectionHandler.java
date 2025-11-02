@@ -3,11 +3,13 @@ package com.sobow.chat.realtime.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sobow.chat.common.domain.dto.MessageReadEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentPersistedEventDto;
 import com.sobow.chat.realtime.domain.event.WebSocketEventEnvelope;
 import com.sobow.chat.realtime.domain.event.WebSocketEventType;
 import com.sobow.chat.realtime.exception.WebSocketUnauthorizedException;
+import com.sobow.chat.realtime.service.MessageReadEventPublisher;
 import com.sobow.chat.realtime.service.MessageSentEventPublisher;
 import com.sobow.chat.realtime.service.MessageSentPersistedBroadcaster;
 import java.net.URI;
@@ -35,6 +37,8 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
     private final ObjectMapper objectMapper;
     private final MessageSentEventPublisher messageSentEventPublisher;
     private final MessageSentPersistedBroadcaster messageSentPersistedBroadcaster;
+    
+    private final MessageReadEventPublisher messageReadEventPublisher;
     
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -122,6 +126,7 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
             .flatMap(envelope ->
                          switch (envelope.getType()) {
                              case MESSAGE_SENT -> handleMessageSentEvent(envelope);
+                             case MESSAGE_READ -> handleMessageReadEvent(envelope);
                              default -> handleUnsupportedEvent(envelope);
                          })
             .onErrorResume(error -> {
@@ -151,12 +156,26 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
             .doOnError(onError -> log.error("WebSocket message sent event failed to publish to Kafka: {}", envelope));
     }
     
+    private Mono<Void> handleMessageReadEvent(WebSocketEventEnvelope<?> envelope) {
+        return extractMessageReadEvent(envelope)
+            .doOnNext(next -> log.debug("Received WebSocket message read event: {}", envelope))
+            .flatMap(messageReadEventPublisher::publish)
+            .then();
+    }
+    
     private Mono<MessageSentEventDto> extractMessageSentEvent(WebSocketEventEnvelope<?> envelope) {
         if (envelope.getType() != WebSocketEventType.MESSAGE_SENT) {
             return Mono.error(new IllegalArgumentException("Unexpected event type: " + envelope.getType()));
         }
         
         return extractPayload(envelope, MessageSentEventDto.class);
+    }
+    
+    private Mono<MessageReadEventDto> extractMessageReadEvent(WebSocketEventEnvelope<?> envelope) {
+        if (envelope.getType() != WebSocketEventType.MESSAGE_READ) {
+            return Mono.error(new IllegalArgumentException("Unexpected event type: " + envelope.getType()));
+        }
+        return extractPayload(envelope, MessageReadEventDto.class);
     }
     
     private <T> Mono<T> extractPayload(WebSocketEventEnvelope<?> envelope, Class<T> payloadClass) {
