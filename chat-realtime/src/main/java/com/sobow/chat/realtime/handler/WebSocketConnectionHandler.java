@@ -4,12 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sobow.chat.common.domain.dto.MessageReadEventDto;
+import com.sobow.chat.common.domain.dto.MessageReadPersistedEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentEventDto;
 import com.sobow.chat.common.domain.dto.MessageSentPersistedEventDto;
 import com.sobow.chat.realtime.domain.event.WebSocketEventEnvelope;
 import com.sobow.chat.realtime.domain.event.WebSocketEventType;
 import com.sobow.chat.realtime.exception.WebSocketUnauthorizedException;
 import com.sobow.chat.realtime.service.MessageReadEventPublisher;
+import com.sobow.chat.realtime.service.MessageReadPersistedBroadcaster;
 import com.sobow.chat.realtime.service.MessageSentEventPublisher;
 import com.sobow.chat.realtime.service.MessageSentPersistedBroadcaster;
 import java.net.URI;
@@ -26,6 +28,7 @@ import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -35,10 +38,13 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
     
     private final ReactiveJwtDecoder jwtDecoder;
     private final ObjectMapper objectMapper;
-    private final MessageSentEventPublisher messageSentEventPublisher;
-    private final MessageSentPersistedBroadcaster messageSentPersistedBroadcaster;
     
+    private final MessageSentEventPublisher messageSentEventPublisher;
     private final MessageReadEventPublisher messageReadEventPublisher;
+    
+    private final MessageSentPersistedBroadcaster messageSentPersistedBroadcaster;
+    private final MessageReadPersistedBroadcaster messageReadPersistedBroadcaster;
+    
     
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -93,10 +99,17 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
     }
     
     private Mono<Void> handleOutgoingWebSocketMessage(WebSocketSession session, UUID userId) {
-        return messageSentPersistedBroadcaster
+        Flux<String> messageSentPersistedEvents = messageSentPersistedBroadcaster
             .subscribe()
             .filter(event -> userId.equals(event.getSenderId()) || userId.equals(event.getReceiverId()))
-            .flatMap(this::serializeMessageSentPersistedEvent)
+            .flatMap(this::serializeMessageSentPersistedEvent);
+        
+        Flux<String> messageReadPersistedEvents = messageReadPersistedBroadcaster
+            .subscribe()
+            .filter(event -> userId.equals(event.getSenderId()))
+            .flatMap(this::serializeMessageReadPersistedEvent);
+        
+        return Flux.merge(messageSentPersistedEvents, messageReadPersistedEvents)
             .doOnNext(next -> log.debug("WebSocket message out: {}", next))
             .map(session::textMessage)
             .as(session::send)
@@ -111,6 +124,17 @@ public class WebSocketConnectionHandler implements WebSocketHandler {
             WebSocketEventEnvelope.<MessageSentPersistedEventDto>builder()
                                   .id(UUID.randomUUID())
                                   .type(WebSocketEventType.MESSAGE_SENT)
+                                  .payload(event)
+                                  .timestamp(Instant.now())
+                                  .build();
+        return serializeWebSocketEvent(envelope);
+    }
+    
+    private Mono<String> serializeMessageReadPersistedEvent(MessageReadPersistedEventDto event) {
+        WebSocketEventEnvelope<MessageReadPersistedEventDto> envelope =
+            WebSocketEventEnvelope.<MessageReadPersistedEventDto>builder()
+                                  .id(UUID.randomUUID())
+                                  .type(WebSocketEventType.MESSAGE_READ)
                                   .payload(event)
                                   .timestamp(Instant.now())
                                   .build();

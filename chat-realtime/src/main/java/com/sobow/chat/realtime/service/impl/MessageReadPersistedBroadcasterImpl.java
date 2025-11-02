@@ -2,7 +2,7 @@ package com.sobow.chat.realtime.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sobow.chat.common.domain.dto.MessageReadPersistedEventDto;
-import com.sobow.chat.realtime.service.MessageReadPersistedEventBroadcaster;
+import com.sobow.chat.realtime.service.MessageReadPersistedBroadcaster;
 import com.sobow.chat.realtime.service.MessageReadPersistedEventConsumer;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +16,7 @@ import reactor.core.publisher.Sinks;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class MessageReadPersistedEventBroadcasterImpl implements MessageReadPersistedEventBroadcaster {
+public class MessageReadPersistedBroadcasterImpl implements MessageReadPersistedBroadcaster {
     
     private static final String CHAT_MESSAGE_READ = "chat:message-read";
     
